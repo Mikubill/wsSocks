@@ -6,8 +6,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"net"
-	"net/http"
-	"net/http/pprof"
 	"net/url"
 	"time"
 )
@@ -184,7 +182,7 @@ var (
 		Action: func(c *cli.Context) (err error) {
 			isClient = true
 
-			taskAdd(debug)
+			//taskAdd(debug)
 			serverAddr, err := url.Parse(c.String("server"))
 			if err != nil {
 				return
@@ -310,13 +308,13 @@ func stats() {
 	}
 }
 
-func debug() {
-	mux := http.NewServeMux()
-	mux.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
-	mux.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
-	mux.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
-	mux.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
-	mux.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
-
-	_ = http.ListenAndServe("127.0.0.1:8090", mux)
-}
+//func debug() {
+//	mux := http.NewServeMux()
+//	mux.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
+//	mux.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
+//	mux.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
+//	mux.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
+//	mux.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
+//
+//	_ = http.ListenAndServe("127.0.0.1:8090", mux)
+//}

@@ -13,7 +13,8 @@ import (
 )
 
 var (
-	client = Client{
+	isClient = false
+	client   = Client{
 		CreatedAt: time.Now(),
 	}
 	server = Server{
@@ -94,6 +95,7 @@ var (
 			globalFlag...,
 		),
 		Action: func(c *cli.Context) (err error) {
+			isClient = true
 
 			if c.String("hash") != "auto" {
 
@@ -180,6 +182,7 @@ var (
 			},
 		},
 		Action: func(c *cli.Context) (err error) {
+			isClient = true
 
 			taskAdd(debug)
 			serverAddr, err := url.Parse(c.String("server"))

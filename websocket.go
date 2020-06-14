@@ -109,10 +109,20 @@ func (ws *webSocket) Reader() (err error) {
 
 func (ws *webSocket) writeData(prefix, flag, p []byte) (n int, err error) {
 	err = ws.write(prefix, flag, p)
+
 	if err != nil {
 		log.Printf("error writing message with length %v, %v", len(p), err)
-		time.Sleep(time.Second)
-		n, err = wsPool.getWs().writeData(prefix, flag, p)
+		for i := 0; i < 5; i++ {
+			time.Sleep(time.Second)
+			if isClient {
+				err = wsPool.getWs().write(prefix, flag, p)
+			} else {
+				err = ws.write(prefix, flag, p)
+			}
+			if err == nil {
+				break
+			}
+		}
 		return
 	}
 	atomic.AddInt64(&uploaded, int64(len(p)))

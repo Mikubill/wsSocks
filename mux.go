@@ -2,7 +2,9 @@ package main
 
 import (
 	"io"
+	"math/rand"
 	"net"
+	"sync"
 )
 
 type muxConn struct {
@@ -14,18 +16,34 @@ type muxConn struct {
 	ws    *webSocket
 }
 
+type wPool struct {
+	sync.Map
+}
+
 var (
-	wsPool   = newPool()
-	connPool = newPool()
+	wsPool   = new(wPool)
+	connPool = new(sync.Map)
 )
+
+func (c *wPool) getWs() (ws *webSocket) {
+	id := wsKeys[rand.Intn(wsLen)]
+	if s, ok := c.Load(u64(id)); !ok {
+		ws = startWs(id)
+		c.Store(u64(id), ws)
+		return ws
+	} else {
+		return s.(*webSocket)
+	}
+}
 
 func createConn(conn net.Conn) (c *muxConn) {
 	c = &muxConn{
+		id:  genRandBytes(connAddrLen),
 		conn: conn,
 		ws:   wsPool.getWs(),
 	}
 	c.pipeR, c.pipeW = io.Pipe()
-	connPool.addConn(c)
+	connPool.Store(u32(c.id), c)
 	return
 }
 
@@ -45,10 +63,8 @@ func (c *muxConn) closeStuff() {
 }
 
 func (c *muxConn) Close() (err error) {
-	connPool.RemoveCb(string(c.id), func(key string, v interface{}, exists bool) bool {
-		c.closeStuff()
-		return true
-	})
+	connPool.Delete(u32(c.id))
+	c.closeStuff()
 	_, err = c.send(c.id, flagClose, nil)
 	return
 }

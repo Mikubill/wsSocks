@@ -16,14 +16,19 @@ type Client struct {
 }
 
 func (client *Client) Listen() (err error) {
+	// init
+	for i := 0; i< client.Connections; i++ {
+		wsKeys = append(wsKeys, genRandBytes(wsAddrLen))
+	}
+	wsLen = client.Connections
+	mainServer = client.ServerAddr.String()
+
 	listener, err := net.ListenTCP("tcp", client.ListenAddr)
 	if err != nil {
 		return err
 	}
 
 	log.Infof("Listening at %s", client.ListenAddr.String())
-	taskAdd(func() { addWs(client.ServerAddr.String(), client.Connections) })
-
 	defer func() {
 		err = listener.Close()
 		if err != nil {
@@ -38,7 +43,7 @@ func (client *Client) Listen() (err error) {
 			continue
 		}
 
-		taskAdd(func() { client.handleConn(conn) })
+		go client.handleConn(conn)
 	}
 }
 

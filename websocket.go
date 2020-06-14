@@ -18,15 +18,16 @@ type webSocket struct {
 	hashFunc func(b []byte, seed uint64) []byte
 	conn     *wsConn
 	lock     sync.Mutex
-	id       string
+	id       []byte
 	buf      *bytes.Buffer
 	b        []byte
 	closed   bool
 }
 
 const (
-	pref  = 3
-	digit = 8
+	wsAddrLen = 8
+	connAddrLen = 4
+	digit       = 8
 )
 
 var (
@@ -34,10 +35,14 @@ var (
 	flagData  = []byte("1")
 	flagClose = []byte("2")
 	flagLoop  = []byte("3")
+
+	wsKeys [][]byte
+	wsLen int
+	mainServer string
 )
 
 func (ws *webSocket) Reader() (err error) {
-	addressBuf := make([]byte, pref)
+	addressBuf := make([]byte, connAddrLen)
 	hashBuf := make([]byte, digit)
 	controlBuf := make([]byte, 1)
 	var dataBuf []byte
@@ -46,17 +51,18 @@ func (ws *webSocket) Reader() (err error) {
 		if err != nil {
 			return
 		}
-		if ws.buf.Len() < pref+digit {
+		if ws.buf.Len() < connAddrLen+digit {
 			log.Warnf("illegal connection %v <-> %v, denied.", ws.conn.LocalAddr(), ws.conn.RemoteAddr())
 			_ = ws.conn.Close()
 			return
 		}
 
 		copy(addressBuf, ws.b)
-		copy(controlBuf, ws.b[pref:])
+		copy(controlBuf, ws.b[connAddrLen:])
 		copy(hashBuf, ws.b[len(ws.b)-digit:])
-		dataBuf = ws.b[pref+1 : len(ws.b)-digit]
+		dataBuf = ws.b[connAddrLen+1 : len(ws.b)-digit]
 
+		log.Debugf("frame %x received, len %v", addressBuf, len(dataBuf))
 		// verify hmacBlock
 		if !validateCode(dataBuf, hashBuf, ws.hashFunc) {
 			log.Warnf("invalid hash %v <-> %v, denied.", ws.conn.LocalAddr(), ws.conn.RemoteAddr())
@@ -65,7 +71,7 @@ func (ws *webSocket) Reader() (err error) {
 		}
 		atomic.AddInt64(&downloaded, int64(len(ws.b)))
 		if bytes.Equal(controlBuf, flagData) {
-			if c, ok := connPool.Get(string(addressBuf)); ok {
+			if c, ok := connPool.Load(u32(addressBuf)); ok {
 				log.Debugf("data frame %x accpeted", addressBuf)
 				c := c.(*muxConn)
 				_, err = c.pipeW.Write(dataBuf)
@@ -85,17 +91,14 @@ func (ws *webSocket) Reader() (err error) {
 			}
 			c.pipeR, c.pipeW = io.Pipe()
 			// wait until dial finish
-			connPool.addConn(c)
+			connPool.Store(u32(addressBuf), c)
 			host := string(dataBuf)
-			taskAdd(func() { server.dialHandler(host, c) })
+			go server.dialHandler(host, c)
 		} else if bytes.Equal(controlBuf, flagClose) {
-			connPool.RemoveCb(string(addressBuf), func(key string, v interface{}, exists bool) bool {
-				if exists {
-					log.Debugf("Close frame %x accpeted", addressBuf)
-					v.(*muxConn).closeStuff()
-				}
-				return true
-			})
+			if s, ok := connPool.Load(u32(addressBuf)); ok {
+				s.(*muxConn).closeStuff()
+				connPool.Delete(u32(addressBuf))
+			}
 		} else if bytes.Equal(controlBuf, flagLoop) {
 			_, _ = ws.writeData(addressBuf, flagClose, dataBuf)
 		} else {
@@ -108,19 +111,12 @@ func (ws *webSocket) writeData(prefix, flag, p []byte) (n int, err error) {
 	err = ws.write(prefix, flag, p)
 	if err != nil {
 		log.Printf("error writing message with length %v, %v", len(p), err)
-		for i := 0; i < 10; i++ {
-			if len(wsPool.keys) > 0 {
-				// websocket might failed
-				ws.close()
-				// retry
-				log.Warnf("Connection closed. switching")
-				err = wsPool.getWs().write(prefix, flag, p)
-			}
-		}
+		time.Sleep(time.Second)
+		n, err = wsPool.getWs().writeData(prefix, flag, p)
 		return
 	}
 	atomic.AddInt64(&uploaded, int64(len(p)))
-
+	log.Debugf("%v written", int64(len(p)))
 	return len(p), nil
 }
 
@@ -147,47 +143,44 @@ func (ws *webSocket) write(prefix, flag, p []byte) (err error) {
 func (ws *webSocket) close() {
 	log.Warnf("websocket connection closed: %v", ws.id)
 	ws.closed = true
-	wsPool.RemoveWs(ws.id)
+	wsPool.Delete(u64(ws.id))
 	_ = ws.conn.Close()
 }
 
-func addWs(server string, count int) {
-	for {
-		if len(wsPool.keys) < count {
-			ws, err := startWs(server)
-			if err != nil {
-				log.Warnf("websocket connection failed to start: %v", err)
-				time.Sleep(time.Second)
-				continue
-			}
-			wsPool.addWs(ws)
-			err = wsHandler.Invoke(ws)
-			log.Debugf("websocket connection %v started. waiting traffic...", ws.id)
-		}
-		time.Sleep(time.Second)
-	}
-}
-
-func startWs(server string) (ws *webSocket, err error) {
+func startWs(id []byte) (ws *webSocket) {
+	var conn *websocket.Conn
+	var err error
 	newDialer := &websocket.Dialer{
-		ReadBufferSize:   32768, // Expected average message size
+		ReadBufferSize:   32768,  // Expected average message size
 		WriteBufferSize:  32768,
 		HandshakeTimeout: 10 * time.Second,
 		TLSClientConfig:  &tlsConfig,
 	}
-	conn, _, err := newDialer.Dial(server, map[string][]string{
-		"Auth": {hex.EncodeToString(generateCode([]byte("authenticate"), hashWorker))},
-		"via":  {hashFlag},
-	})
-	if err != nil {
-		return
+	for {
+		conn, _, err = newDialer.Dial(mainServer, map[string][]string{
+			"Auth": {hex.EncodeToString(generateCode([]byte("authenticate"), hashWorker))},
+			"via":  {hashFlag},
+		})
+		if err == nil {
+			break
+		}
+		time.Sleep(time.Second)
 	}
 	ws = &webSocket{
+		id: id,
 		hashFunc: hashWorker,
 		conn:     &wsConn{conn},
 		closed:   false,
 		buf:      bytes.NewBuffer(make([]byte, 32*1024)),
 	}
+	taskAdd(func() {
+		err := ws.Reader()
+		ws.close()
+		log.Warnf("websocket connection %x closed", ws.id)
+		if err != nil {
+			log.Warn(err)
+		}
+	})
 	return
 }
 

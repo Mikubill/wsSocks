@@ -16,20 +16,25 @@ type Benchmark struct {
 }
 
 func (client *Benchmark) Bench() (err error) {
-	taskAdd(func() { addWs(client.ServerAddr.String(), 4) })
+
+	for i := 0; i< client.Connections; i++ {
+		wsKeys = append(wsKeys, genRandBytes(wsAddrLen))
+	}
+	wsLen = client.Connections
+	mainServer = client.ServerAddr.String()
+
+
 	data := genRandBytes(client.Block)
 	for {
-		if connPool.Count() < 10 {
-			c := &muxConn{
-				id: genRandBytes(3),
-				ws: wsPool.getWs(),
-			}
-			_, err = c.bench(data)
-			if err != nil {
-				log.Warnf(err.Error())
-			}
-			_ = c.Close()
+		c := &muxConn{
+			id: genRandBytes(connAddrLen),
+			ws: wsPool.getWs(),
 		}
+		_, err = c.bench(data)
+		if err != nil {
+			log.Warnf(err.Error())
+		}
+		_ = c.Close()
 	}
 }
 

@@ -12,10 +12,10 @@ type dataPack struct {
 	close  bool
 }
 
-type trsPack struct {
-	dst  io.WriteCloser
-	data *[]byte
-}
+//type trsPack struct {
+//	dst  io.WriteCloser
+//	data *[]byte
+//}
 
 var mainThread *ants.Pool
 
@@ -25,7 +25,7 @@ var wBufPool = sync.Pool{
 	},
 }
 
-var transfer, _ = ants.NewPoolWithFunc(5000000, func(i interface{}) {
+var transfer, _ = ants.NewPoolWithFunc(500000, func(i interface{}) {
 	pack := i.(*dataPack)
 	buf := wBufPool.Get().([]byte)
 	_, err := io.Copy(pack.writer, pack.reader)
@@ -37,22 +37,14 @@ var transfer, _ = ants.NewPoolWithFunc(5000000, func(i interface{}) {
 	_ = pack.reader.Close()
 })
 
-var pusher, _ = ants.NewPoolWithFunc(5000000, func(i interface{}) {
-	c := i.(*trsPack)
-	_, err := c.dst.Write(*c.data)
-	if err != nil {
-		_ = c.dst.Close()
-	}
-})
-
-var wsHandler, _ = ants.NewPoolWithFunc(5000000, func(i interface{}) {
-	ws := i.(*webSocket)
+var wsHandler = func(ws *webSocket) {
 	err := ws.Reader()
 	ws.close()
+	log.Warnf("websocket connection %x closed", ws.id)
 	if err != nil {
-		log.Warnf("websocket connection closed: %v", err)
+		log.Warn(err)
 	}
-})
+}
 
 func taskAdd(f func()) {
 	for {

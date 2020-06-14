@@ -85,13 +85,14 @@ func (server *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ws := &webSocket{
+		id: genRandBytes(wsAddrLen),
 		hashFunc: hFunc,
 		conn:     &wsConn{c},
 		closed:   false,
 		buf:      bytes.NewBuffer(make([]byte, 32*1024)),
 	}
-	wsPool.addWs(ws)
-	_ = wsHandler.Invoke(ws)
+	wsPool.Store(u64(ws.id), ws)
+	go wsHandler(ws)
 }
 
 func (server *Server) Listen() (err error) {

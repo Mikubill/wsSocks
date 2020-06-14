@@ -126,6 +126,8 @@ var (
 			authKey = make([]byte, hex.EncodedLen(len(key)))
 			hex.Encode(authKey, key)
 			taskAdd(timeUpdater)
+
+
 			if srv := c.String("sni"); srv != "" {
 				tlsConfig.ServerName = srv
 			}

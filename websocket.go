@@ -72,32 +72,35 @@ func (ws *webSocket) Reader() (err error) {
 		atomic.AddInt64(&downloaded, int64(len(ws.b)))
 		if bytes.Equal(controlBuf, flagData) {
 			if c, ok := connPool.Load(u32(addressBuf)); ok {
-				log.Debugf("data frame %x accpeted", addressBuf)
+				log.Debugf("data frame %x accepted", addressBuf)
 				c := c.(*muxConn)
 				_, err = c.pipeW.Write(dataBuf)
 				if err != nil {
 					_ = c.Close()
 				}
 			} else {
-				log.Debugf("data frame %x accpeted, but conn not found", addressBuf)
+				log.Debugf("data frame %x accepted, but conn not found", addressBuf)
 				_, _ = ws.writeData(addressBuf, flagClose, nil)
 			}
 		} else if bytes.Equal(controlBuf, flagDial) {
 			// server only
-			log.Debugf("dial frame %x accpeted", addressBuf)
+			log.Debugf("dial frame %x accepted", addressBuf)
 			c := &muxConn{
 				id: addressBuf,
 				ws: ws,
 			}
-			c.pipeR, c.pipeW = io.Pipe()
+			c.pipeR, c.pipeW = newPipe()
 			// wait until dial finish
 			connPool.Store(u32(addressBuf), c)
 			host := string(dataBuf)
 			go server.dialHandler(host, c)
 		} else if bytes.Equal(controlBuf, flagClose) {
 			if s, ok := connPool.Load(u32(addressBuf)); ok {
+				log.Debugf("close frame %x accepted", addressBuf)
 				s.(*muxConn).closeStuff()
 				connPool.Delete(u32(addressBuf))
+			} else {
+				log.Debugf("close frame %x accepted, but conn not found", addressBuf)
 			}
 		} else if bytes.Equal(controlBuf, flagLoop) {
 			_, _ = ws.writeData(addressBuf, flagClose, dataBuf)

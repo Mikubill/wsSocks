@@ -40,6 +40,7 @@ func (server *Server) dialHandler(host string, c *muxConn) {
 		_ = c.Close()
 		return
 	}
+	c.conn = conn
 
 	err = transfer.Invoke(&dataPack{
 		writer: c,

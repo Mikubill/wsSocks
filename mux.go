@@ -9,8 +9,8 @@ import (
 
 type muxConn struct {
 	io.ReadWriter
-	pipeW *io.PipeWriter
-	pipeR *io.PipeReader
+	pipeW *PipeWriter
+	pipeR *PipeReader
 	conn  net.Conn
 	id    []byte
 	ws    *webSocket
@@ -42,7 +42,7 @@ func createConn(conn net.Conn) (c *muxConn) {
 		conn: conn,
 		ws:   wsPool.getWs(),
 	}
-	c.pipeR, c.pipeW = io.Pipe()
+	c.pipeR, c.pipeW = newPipe()
 	connPool.Store(u32(c.id), c)
 	return
 }

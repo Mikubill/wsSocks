@@ -28,6 +28,8 @@ const (
 	wsAddrLen   = 8
 	connAddrLen = 4
 	digit       = 8
+	wsReadBuf   = 63 * 1024
+	wsWriteBuf  = 63 * 1024
 )
 
 var (
@@ -116,12 +118,7 @@ func (ws *webSocket) writeData(prefix, flag, p []byte) (n int, err error) {
 	if err != nil {
 		log.Printf("error writing message with length %v, %v", len(p), err)
 		for i := 0; i < 5; i++ {
-			time.Sleep(time.Second)
-			if isClient {
-				err = wsPool.getWs().write(prefix, flag, p)
-			} else {
-				err = ws.write(prefix, flag, p)
-			}
+			err = ws.write(prefix, flag, p)
 			if err == nil {
 				break
 			}
@@ -164,8 +161,8 @@ func startWs(id []byte) (ws *webSocket) {
 	var conn *websocket.Conn
 	var err error
 	newDialer := &websocket.Dialer{
-		ReadBufferSize:   32768, // Expected average message size
-		WriteBufferSize:  32768,
+		ReadBufferSize:   wsReadBuf, // Expected average message size
+		WriteBufferSize:  wsWriteBuf,
 		HandshakeTimeout: 10 * time.Second,
 		TLSClientConfig:  &tlsConfig,
 	}

@@ -43,23 +43,11 @@ func (server *Server) dialHandler(host string, c *muxConn) {
 	c.conn = conn
 
 	err = transfer.Invoke(&dataPack{
-		writer: c,
-		reader: conn,
+		netConn: conn,
+		muxConn: c,
 	})
 	if err != nil {
-		log.Warn(err)
-		_ = conn.Close()
-		_ = c.Close()
-		return
-	}
-
-	err = transfer.Invoke(&dataPack{
-		writer: conn,
-		reader: c.pipeR,
-	})
-	if err != nil {
-		log.Warn(err)
-		_ = conn.Close()
+		log.Warn("invoke error: %V", err)
 		_ = c.Close()
 		return
 	}
@@ -90,7 +78,7 @@ func (server *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		hashFunc: hFunc,
 		conn:     &wsConn{c},
 		closed:   false,
-		buf:      bytes.NewBuffer(make([]byte, 32*1024)),
+		buf:      bytes.NewBuffer(make([]byte, wsReadBuf)),
 	}
 	wsPool.Store(u64(ws.id), ws)
 	go wsHandler(ws)

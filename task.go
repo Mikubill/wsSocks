@@ -3,38 +3,41 @@ package main
 import (
 	"github.com/panjf2000/ants/v2"
 	"io"
-	"sync"
+	"net"
+	"time"
 )
 
 type dataPack struct {
-	reader io.ReadCloser
-	writer io.WriteCloser
-	close  bool
+	netConn net.Conn
+	muxConn *muxConn
+	ch      chan struct{}
 }
-
-//type trsPack struct {
-//	dst  io.WriteCloser
-//	data *[]byte
-//}
 
 var mainThread *ants.Pool
 
-var wBufPool = sync.Pool{
-	New: func() interface{} {
-		return make([]byte, 30*1024)
-	},
-}
-
 var transfer, _ = ants.NewPoolWithFunc(500000, func(i interface{}) {
 	pack := i.(*dataPack)
-	buf := wBufPool.Get().([]byte)
-	_, err := io.Copy(pack.writer, pack.reader)
+	pack.ch = make(chan struct{})
+	_ = receiver.Invoke(pack)
+	_, err := io.Copy(pack.muxConn, pack.netConn)
 	if err != nil {
 		log.Debug("connection copy error: ", err)
 	}
-	wBufPool.Put(buf)
-	_ = pack.writer.Close()
-	_ = pack.reader.Close()
+	<-pack.ch
+	_ = pack.muxConn.Close()
+})
+
+var receiver, _ = ants.NewPoolWithFunc(500000, func(i interface{}) {
+	pack := i.(*dataPack)
+	defer func() { pack.ch <- struct{}{} }()
+	_, err := io.Copy(pack.netConn, pack.muxConn.pipeR)
+	if err != nil {
+		if err, ok := err.(net.Error); ok && err.Timeout() {
+			return // ignore i/o timeout
+		}
+		log.Debug("connection copy error: ", err)
+	}
+	_ = pack.netConn.SetReadDeadline(time.Now()) // unblock read on right
 })
 
 var wsHandler = func(ws *webSocket) {

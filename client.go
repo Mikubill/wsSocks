@@ -4,31 +4,37 @@ import (
 	"github.com/gorilla/websocket"
 	"net"
 	"net/url"
+	"os"
 	"time"
 )
 
 type Client struct {
-	Connections int
-	ListenAddr  *net.TCPAddr
-	ServerAddr  *url.URL
-	Dialer      *websocket.Dialer
-	CreatedAt   time.Time
+	Connections   int
+	ListenTCPAddr *net.TCPAddr
+	ServerAddr    *url.URL
+	Dialer        *websocket.Dialer
+	CreatedAt     time.Time
 }
 
-func (client *Client) Listen() (err error) {
+func (client *Client) Listen() {
 	// init
 	for i := 0; i < client.Connections; i++ {
 		wsKeys = append(wsKeys, genRandBytes(wsAddrLen))
 	}
 	wsLen = client.Connections
 	mainServer = client.ServerAddr.String()
+	log.Infof("Listening at %s", client.ListenTCPAddr.String())
 
-	listener, err := net.ListenTCP("tcp", client.ListenAddr)
+	client.listenTCP()
+}
+
+func (client *Client) listenTCP() {
+	listener, err := net.ListenTCP("tcp", client.ListenTCPAddr)
 	if err != nil {
-		return err
+		log.Error(err)
+		os.Exit(1)
 	}
 
-	log.Infof("Listening at %s", client.ListenAddr.String())
 	defer func() {
 		err = listener.Close()
 		if err != nil {
@@ -71,23 +77,11 @@ func (client *Client) handleConn(conn *net.TCPConn) {
 	}
 
 	err = transfer.Invoke(&dataPack{
-		reader: conn,
-		writer: ws,
+		netConn: conn,
+		muxConn: ws,
 	})
 	if err != nil {
-		log.Warn(err)
-		_ = conn.Close()
-		_ = ws.Close()
-		return
-	}
-
-	err = transfer.Invoke(&dataPack{
-		writer: conn,
-		reader: ws.pipeR,
-	})
-	if err != nil {
-		log.Warn(err)
-		_ = conn.Close()
+		log.Warn("invoke error: %V", err)
 		_ = ws.Close()
 		return
 	}

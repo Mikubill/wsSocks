@@ -11,14 +11,13 @@ import (
 )
 
 var (
-	isClient = false
-	client   = Client{
+	client = Client{
 		CreatedAt: time.Now(),
 	}
 	server = Server{
 		Resolver: &websocket.Upgrader{
-			ReadBufferSize:   32768, // Expected average message size
-			WriteBufferSize:  32768,
+			ReadBufferSize:   wsReadBuf, // Expected average message size
+			WriteBufferSize:  wsWriteBuf,
 			HandshakeTimeout: 10 * time.Second,
 		},
 		CreatedAt: time.Now(),
@@ -93,7 +92,6 @@ var (
 			globalFlag...,
 		),
 		Action: func(c *cli.Context) (err error) {
-			isClient = true
 
 			if c.String("hash") != "auto" {
 
@@ -109,7 +107,7 @@ var (
 				return
 			}
 
-			client.ListenAddr, err = net.ResolveTCPAddr("tcp", c.String("listen"))
+			client.ListenTCPAddr, err = net.ResolveTCPAddr("tcp", c.String("listen"))
 			if err != nil {
 				return
 			}
@@ -133,7 +131,8 @@ var (
 			tlsConfig.InsecureSkipVerify = c.Bool("insecure")
 
 			client.Connections = c.Int("conn")
-			err = client.Listen()
+			client.Listen()
+
 			return
 		},
 	}
@@ -180,7 +179,6 @@ var (
 			},
 		},
 		Action: func(c *cli.Context) (err error) {
-			isClient = true
 
 			//taskAdd(debug)
 			serverAddr, err := url.Parse(c.String("server"))

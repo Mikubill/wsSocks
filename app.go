@@ -127,7 +127,6 @@ var (
 			hex.Encode(authKey, key)
 			taskAdd(timeUpdater)
 
-
 			if srv := c.String("sni"); srv != "" {
 				tlsConfig.ServerName = srv
 			}

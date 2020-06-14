@@ -85,7 +85,7 @@ func (server *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ws := &webSocket{
-		id: genRandBytes(wsAddrLen),
+		id:       genRandBytes(wsAddrLen),
 		hashFunc: hFunc,
 		conn:     &wsConn{c},
 		closed:   false,

@@ -38,7 +38,7 @@ func (c *wPool) getWs() (ws *webSocket) {
 
 func createConn(conn net.Conn) (c *muxConn) {
 	c = &muxConn{
-		id:  genRandBytes(connAddrLen),
+		id:   genRandBytes(connAddrLen),
 		conn: conn,
 		ws:   wsPool.getWs(),
 	}

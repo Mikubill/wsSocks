@@ -25,7 +25,7 @@ type webSocket struct {
 }
 
 const (
-	wsAddrLen = 8
+	wsAddrLen   = 8
 	connAddrLen = 4
 	digit       = 8
 )
@@ -36,8 +36,8 @@ var (
 	flagClose = []byte("2")
 	flagLoop  = []byte("3")
 
-	wsKeys [][]byte
-	wsLen int
+	wsKeys     [][]byte
+	wsLen      int
 	mainServer string
 )
 
@@ -151,7 +151,7 @@ func startWs(id []byte) (ws *webSocket) {
 	var conn *websocket.Conn
 	var err error
 	newDialer := &websocket.Dialer{
-		ReadBufferSize:   32768,  // Expected average message size
+		ReadBufferSize:   32768, // Expected average message size
 		WriteBufferSize:  32768,
 		HandshakeTimeout: 10 * time.Second,
 		TLSClientConfig:  &tlsConfig,
@@ -167,7 +167,7 @@ func startWs(id []byte) (ws *webSocket) {
 		time.Sleep(time.Second)
 	}
 	ws = &webSocket{
-		id: id,
+		id:       id,
 		hashFunc: hashWorker,
 		conn:     &wsConn{conn},
 		closed:   false,

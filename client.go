@@ -17,7 +17,7 @@ type Client struct {
 
 func (client *Client) Listen() (err error) {
 	// init
-	for i := 0; i< client.Connections; i++ {
+	for i := 0; i < client.Connections; i++ {
 		wsKeys = append(wsKeys, genRandBytes(wsAddrLen))
 	}
 	wsLen = client.Connections

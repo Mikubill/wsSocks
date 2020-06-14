@@ -17,12 +17,11 @@ type Benchmark struct {
 
 func (client *Benchmark) Bench() (err error) {
 
-	for i := 0; i< client.Connections; i++ {
+	for i := 0; i < client.Connections; i++ {
 		wsKeys = append(wsKeys, genRandBytes(wsAddrLen))
 	}
 	wsLen = client.Connections
 	mainServer = client.ServerAddr.String()
-
 
 	data := genRandBytes(client.Block)
 	for {

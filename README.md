@@ -1,4 +1,4 @@
-# wSocks
+# wsSocks
 
 An efficient, multiplexed proxy tool based on Websocket.
 
@@ -12,30 +12,30 @@ An efficient, multiplexed proxy tool based on Websocket.
 
 ## install
 
-`curl -Ls git.io/wsocks | sh`
+`curl -Ls git.io/wsSocks | sh`
 
 ## usage
 
 Generate Cert
 
-`./wSocks cert --hosts localhost`
+`./wsSocks cert --hosts localhost`
 
 Server with TLS
 
-`./wSocks server -l wss://localhost:2333/ws --cert root.pem --key root.key --auth <password>`
+`./wsSocks server -l wss://localhost:2333/ws --cert root.pem --key root.key --auth <password>`
 
 Client 
 
-`./wSocks client -s wss://localhost:2333/ws --insecure --auth <password>`
+`./wsSocks client -s wss://localhost:2333/ws --insecure --auth <password>`
 
 Server without TLS
 
-`./wSocks client -l ws://localhost:2333/ws --auth <password>`
+`./wsSocks client -l ws://localhost:2333/ws --auth <password>`
 
 Client 
 
-`./wSocks client -s ws://localhost:2333/ws --auth <password>`
+`./wsSocks client -s ws://localhost:2333/ws --auth <password>`
 
 Built-in Benchmark
 
-`./wSocks benchmark -s ws://localhost:2333/ws --block 10240 --auth <password>`
+`./wsSocks benchmark -s ws://localhost:2333/ws --block 10240 --auth <password>`

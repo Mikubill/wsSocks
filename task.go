@@ -43,7 +43,7 @@ var receiver, _ = ants.NewPoolWithFunc(500000, func(i interface{}) {
 var wsHandler = func(ws *webSocket) {
 	err := ws.Reader()
 	ws.close()
-	log.Warnf("websocket connection %x closed", ws.id)
+	log.Warnf("websocket connection %v closed", u64(ws.id))
 	if err != nil {
 		log.Warn(err)
 	}

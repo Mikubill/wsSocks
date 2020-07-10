@@ -30,9 +30,14 @@ func (c *wPool) getWs() (ws *webSocket) {
 	if s, ok := c.Load(u64(id)); !ok {
 		ws = startWs(id)
 		c.Store(u64(id), ws)
-		return ws
+		return
 	} else {
-		return s.(*webSocket)
+		ws = s.(*webSocket)
+		if ws.closed {
+			ws = startWs(id)
+			c.Store(u64(id), ws)
+		}
+		return
 	}
 }
 

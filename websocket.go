@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/hex"
+	"fmt"
 	"github.com/gorilla/websocket"
 	"io"
 	"sync"
@@ -99,8 +100,8 @@ func (ws *webSocket) Reader() (err error) {
 		} else if bytes.Equal(controlBuf, flagClose) {
 			if s, ok := connPool.Load(u32(addressBuf)); ok {
 				log.Debugf("close frame %x accepted", addressBuf)
-				s.(*muxConn).closeStuff()
 				connPool.Delete(u32(addressBuf))
+				s.(*muxConn).closeStuff()
 			} else {
 				log.Debugf("close frame %x accepted, but conn not found", addressBuf)
 			}
@@ -113,16 +114,15 @@ func (ws *webSocket) Reader() (err error) {
 }
 
 func (ws *webSocket) writeData(prefix, flag, p []byte) (n int, err error) {
+	if ws.closed {
+		return 0, fmt.Errorf("use of closed websocket")
+	}
+
 	err = ws.write(prefix, flag, p)
 
 	if err != nil {
 		log.Printf("error writing message with length %v, %v", len(p), err)
-		for i := 0; i < 5; i++ {
-			err = ws.write(prefix, flag, p)
-			if err == nil {
-				break
-			}
-		}
+		//err = ws.write(prefix, flag, p)
 		return
 	}
 	atomic.AddInt64(&uploaded, int64(len(p)))
@@ -151,7 +151,7 @@ func (ws *webSocket) write(prefix, flag, p []byte) (err error) {
 }
 
 func (ws *webSocket) close() {
-	log.Warnf("websocket connection closed: %v", ws.id)
+	log.Warnf("websocket connection closed: %v", u64(ws.id))
 	ws.closed = true
 	wsPool.Delete(u64(ws.id))
 	_ = ws.conn.Close()
@@ -173,6 +173,8 @@ func startWs(id []byte) (ws *webSocket) {
 		})
 		if err == nil {
 			break
+		} else {
+			log.Warnf("dialing new websocket failed: %s", err.Error())
 		}
 		time.Sleep(time.Second)
 	}
@@ -186,7 +188,7 @@ func startWs(id []byte) (ws *webSocket) {
 	taskAdd(func() {
 		err := ws.Reader()
 		ws.close()
-		log.Warnf("websocket connection %x closed", ws.id)
+		log.Warnf("websocket connection %v closed", u64(ws.id))
 		if err != nil {
 			log.Warn(err)
 		}

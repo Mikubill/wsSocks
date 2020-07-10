@@ -1,5 +1,6 @@
 socks
 /socks
+/wsSocks
 /.idea
 /root.key
 /root.pem

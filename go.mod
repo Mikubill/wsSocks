@@ -1,4 +1,4 @@
-module socks
+module wsSocks
 
 go 1.14
 

@@ -25,6 +25,7 @@ func (client *Benchmark) Bench() (err error) {
 
 	data := genRandBytes(client.Block)
 	for {
+		//log.Warn("initializing data package...")
 		c := &muxConn{
 			id: genRandBytes(connAddrLen),
 			ws: wsPool.getWs(),
